@@ -22,13 +22,13 @@ impl Default for Settings {
     fn default() -> Self {
         let home = std::env::var("HOME").map(PathBuf::from).unwrap_or_default();
         let candidates = [
-            PathBuf::from("/Volumes/DEV"),
-            PathBuf::from("/Volumes/HOME/DEV_HOME"),
             home.join("Developer"),
             home.join("Projects"),
             home.join("Sites"),
             home.join("dev"),
             home.join("code"),
+            home.join("www"),
+            home.join("dev-projects"),
         ];
         Settings {
             roots: candidates
