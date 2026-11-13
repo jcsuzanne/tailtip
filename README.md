@@ -5,6 +5,12 @@ Utilitaire macOS dans la barre de menu : accès rapide aux tokens Tailwind (coul
 - **Tailwind v3/v2** : `tailwind.config.{js,cjs,mjs,ts}` résolu via node (Tailwind du projet, sinon Tailwind 3.4 embarqué).
 - **Tailwind v4** : lecture des blocs `@theme` du CSS d'entrée (`@import "tailwindcss"`) et de ses `@import` locaux.
 
+## Installation
+
+[⬇︎ Télécharger la dernière version](https://github.com/jcsuzanne/tailtip/releases/latest) (Mac Apple Silicon, Node.js requis pour les configs v3).
+
+Dézipper, déplacer `TailTip.app` dans `/Applications`, puis **clic droit → Ouvrir** au premier lancement (app non signée). Ajouter ses dossiers de projets dans les réglages (⚙).
+
 ## Utilisation
 
 - Clic sur l'icône (ou `⌥⌘T`) → liste des projets, recherche, `↑↓` + `Entrée`.
