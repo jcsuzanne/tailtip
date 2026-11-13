@@ -1,38 +1,45 @@
 # TailTip
 
-Utilitaire macOS dans la barre de menu : accès rapide aux tokens Tailwind (couleurs, polices, spacing, breakpoints…) de tous tes projets.
+**English** · [Français](README.fr.md)
 
-- **Tailwind v3/v2** : `tailwind.config.{js,cjs,mjs,ts}` résolu via node (Tailwind du projet, sinon Tailwind 3.4 embarqué).
-- **Tailwind v4** : lecture des blocs `@theme` du CSS d'entrée (`@import "tailwindcss"`) et de ses `@import` locaux.
+A macOS menu bar utility for quick access to the Tailwind tokens (colors, fonts, spacing, breakpoints…) of all your projects.
+
+- **Tailwind v3/v2**: `tailwind.config.{js,cjs,mjs,ts}` is resolved with Node (the project's own Tailwind, or a bundled Tailwind 3.4 when it isn't installed).
+- **Tailwind v4**: reads the `@theme` blocks of the CSS entry file (`@import "tailwindcss"`) and its local `@import`s.
 
 ## Installation
 
-[⬇︎ Télécharger la dernière version](https://github.com/jcsuzanne/tailtip/releases/latest) (Mac Apple Silicon, Node.js requis pour les configs v3).
+[⬇︎ Download the latest release](https://github.com/jcsuzanne/tailtip/releases/latest) (Apple Silicon Mac, Node.js required for v3 configs).
 
-Dézipper, déplacer `TailTip.app` dans `/Applications`, puis **clic droit → Ouvrir** au premier lancement (app non signée). Ajouter ses dossiers de projets dans les réglages (⚙).
+Unzip, move `TailTip.app` to `/Applications`, then **right-click → Open** on first launch (the app is not signed). Add your project folders in Settings (⚙).
 
-## Utilisation
+## Usage
 
-- Clic sur l'icône (ou `⌥⌘T`) → liste des projets, recherche, `↑↓` + `Entrée`.
-- La recherche couvre aussi les tokens perso de **tous** les projets (nom ou valeur, ex. `ivory`, `#f9af26`).
-- Les configs sont surveillées : toute modification (y compris des `@import` v4) recharge le thème.
-- Réglages → « Lancer TailTip au démarrage du Mac ».
-- Clic sur un token → copie la classe (`tw-bg-cognac`, `tw:bg-ivory`…), préfixe respecté.
-- `⌥` clic → valeur · `⇧` clic → `var(--…)` (v4) / `theme('…')` (v3).
-- Icône ↗ / clic droit sur une couleur → ouvre la ligne dans Cursor.
-- `Échap` → retour / fermer.
+- Click the menu bar icon (or press `⌥⌘T`) → project list, search, `↑↓` + `Enter`.
+- Search also covers the custom tokens of **every** project (by name or value, e.g. `ivory`, `#f9af26`).
+- Click a token → copies the class (`tw-bg-cognac`, `tw:bg-ivory`…), with the project's prefix.
+- `⌥`-click → copies the value · `⇧`-click → `var(--…)` (v4) / `theme('…')` (v3).
+- Pick the utility copied per group (`bg`, `text`, `border`…) from the group header.
+- ↗ icon / right-click a color → opens the token's line in Cursor.
+- Configs are watched: any change (including v4 `@import`s) reloads the theme.
+- Settings → “Launch TailTip at login”.
+- `Esc` → back / close.
 
-## Dev
+## Development
 
-Prérequis : Node, pnpm, Rust (`brew install rust` ou rustup).
+Requirements: Node, pnpm, Rust (`brew install rust` or rustup).
 
 ```sh
 pnpm install
-pnpm build:resolver      # bundle du résolveur v3 (src-tauri/resolver)
+pnpm build:resolver               # bundles the v3 resolver (src-tauri/resolver)
 pnpm tauri dev
-pnpm tauri build --bundles app   # → src-tauri/target/release/bundle/macos/TailTip.app
+pnpm tauri build --bundles app    # → src-tauri/target/release/bundle/macos/TailTip.app
 ```
 
-Installer : copier `TailTip.app` dans `/Applications`. Non signée : pour un collègue, clic droit → Ouvrir au premier lancement (ou signature Apple Developer).
+Settings are stored in `~/Library/Application Support/dev.tailtip.app/settings.json`.
 
-Réglages stockés dans `~/Library/Application Support/dev.tailtip.app/settings.json`.
+## How it works
+
+- **Scan** — walks the configured folders (skipping `node_modules`, `vendor`, build output, hidden folders…) looking for v3 config files and v4 CSS entries. CSS files that import Tailwind only to use `@apply` are ignored when the project has a real theme file.
+- **v3** — a small Node script (bundled with jiti and Tailwind 3.4) loads the config, resolves it with the project's Tailwind when available, and flags which tokens come from the project vs. Tailwind's defaults. Missing plugins are replaced by no-op stubs, so the theme can still be read.
+- **v4** — `@theme` declarations are parsed in Rust, `var()` references are resolved and each token's file and line is kept.
