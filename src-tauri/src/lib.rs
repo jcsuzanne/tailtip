@@ -1,3 +1,4 @@
+mod index;
 mod scan;
 mod settings;
 mod theme;
@@ -6,26 +7,26 @@ mod v4;
 
 use scan::Project;
 use settings::Settings;
-use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Mutex;
-use std::time::UNIX_EPOCH;
+use std::sync::{Arc, Mutex};
 use tauri::image::Image;
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::{AppHandle, Emitter, Manager, State, WindowEvent};
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut, ShortcutState};
 use tauri_plugin_positioner::{Position, WindowExt};
+use index::{Hit, Index, Loader};
+use scan::ConfigFile;
 use theme::{Kind, Theme};
 
 #[derive(Default)]
 struct AppState {
     settings: Mutex<Settings>,
     projects: Mutex<Option<Vec<Project>>>,
-    /// v3 themes cached by config path, invalidated by mtime.
-    v3_cache: Mutex<HashMap<String, (u64, Theme)>>,
+    /// Themes of every config, for the project view and cross-project search.
+    index: Arc<Index>,
     node: Mutex<Option<Option<String>>>,
     /// Keep the popover open while a native dialog has focus.
     keep_open: AtomicBool,
@@ -49,21 +50,21 @@ fn resolver_path(app: &AppHandle) -> PathBuf {
     bundled.unwrap_or_else(|| Path::new(env!("CARGO_MANIFEST_DIR")).join("resolver/dist/resolve.cjs"))
 }
 
-fn mtime(path: &Path) -> u64 {
-    std::fs::metadata(path)
-        .and_then(|m| m.modified())
-        .ok()
-        .and_then(|t| t.duration_since(UNIX_EPOCH).ok())
-        .map(|d| d.as_millis() as u64)
-        .unwrap_or(0)
-}
-
 fn node_binary(state: &AppState) -> Option<String> {
     if let Some(explicit) = state.settings.lock().unwrap().node_path.clone().filter(|p| !p.is_empty()) {
         return Some(explicit);
     }
     let mut cached = state.node.lock().unwrap();
     cached.get_or_insert_with(v3::detect_node).clone()
+}
+
+fn loader(app: &AppHandle, state: &AppState) -> Loader {
+    Loader { node: node_binary(state), resolver: resolver_path(app) }
+}
+
+fn build_index(app: &AppHandle, projects: Vec<Project>) {
+    let state = app.state::<AppState>();
+    state.index.build(app.clone(), loader(app, &state), projects);
 }
 
 fn do_scan(app: &AppHandle, state: &AppState) -> Vec<Project> {
@@ -75,6 +76,7 @@ fn do_scan(app: &AppHandle, state: &AppState) -> Vec<Project> {
     }
     let _ = std::fs::write(&path, serde_json::to_string(&projects).unwrap_or_default());
     *state.projects.lock().unwrap() = Some(projects.clone());
+    build_index(app, projects.clone());
     projects
 }
 
@@ -112,6 +114,7 @@ async fn list_projects(app: AppHandle) -> Vec<Project> {
         match cached {
             Some(p) => {
                 *state.projects.lock().unwrap() = Some(p.clone());
+                build_index(&app, p.clone());
                 p
             }
             None => do_scan(&app, &state),
@@ -135,27 +138,17 @@ async fn rescan(app: AppHandle) -> Vec<Project> {
 async fn load_theme(app: AppHandle, path: String, kind: Kind) -> Theme {
     tauri::async_runtime::spawn_blocking(move || {
         let state = app.state::<AppState>();
-        let config = PathBuf::from(&path);
-        match kind {
-            Kind::V4 => v4::parse(&config),
-            Kind::V3 => {
-                let stamp = mtime(&config);
-                if let Some((m, theme)) = state.v3_cache.lock().unwrap().get(&path) {
-                    if *m == stamp {
-                        return theme.clone();
-                    }
-                }
-                let node = node_binary(&state);
-                let theme = v3::resolve(node.as_deref(), &resolver_path(&app), &config);
-                if theme.error.is_none() {
-                    state.v3_cache.lock().unwrap().insert(path, (stamp, theme.clone()));
-                }
-                theme
-            }
-        }
+        state.index.get(&loader(&app, &state), &ConfigFile { path, kind })
     })
     .await
     .unwrap_or_else(|e| Theme::failed(kind, "", e.to_string()))
+}
+
+#[tauri::command]
+fn search_tokens(state: State<AppState>, query: String) -> Vec<Hit> {
+    let projects = state.projects.lock().unwrap().clone().unwrap_or_default();
+    let hidden = state.settings.lock().unwrap().hidden.clone();
+    state.index.search(&projects, &hidden, &query)
 }
 
 #[tauri::command]
@@ -235,6 +228,10 @@ pub fn run() {
         .plugin(tauri_plugin_positioner::init())
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_autostart::init(
+            tauri_plugin_autostart::MacosLauncher::LaunchAgent,
+            None,
+        ))
         .plugin(
             tauri_plugin_global_shortcut::Builder::new()
                 .with_handler(|app, _shortcut, event| {
@@ -303,6 +300,7 @@ pub fn run() {
             list_projects,
             rescan,
             load_theme,
+            search_tokens,
             open_in_editor,
             reveal_in_finder,
             hide_window,
@@ -316,6 +314,36 @@ pub fn run() {
 
 #[cfg(test)]
 mod probe {
+    /// Cross-project search on real folders: `cargo test probe_search -- --ignored --nocapture`
+    #[test]
+    #[ignore]
+    fn probe_search() {
+        let roots = crate::settings::Settings::default().roots;
+        let projects = crate::scan::scan(&roots);
+        let loader = crate::index::Loader {
+            node: crate::v3::detect_node(),
+            resolver: std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("resolver/dist/resolve.cjs"),
+        };
+        let index = crate::index::Index::default();
+        let t = std::time::Instant::now();
+        let mut errors = 0;
+        for c in projects.iter().flat_map(|p| p.configs.iter()) {
+            let theme = index.get(&loader, c);
+            if let Some(e) = theme.error {
+                errors += 1;
+                println!("ERR {}: {}", c.path, e);
+            }
+        }
+        println!("indexed sequentially in {:?}, {errors} errors", t.elapsed());
+        for q in ["ivory", "cognac", "#f9af26", "outer-x"] {
+            let hits = index.search(&projects, &[], q);
+            println!("{q}: {} hits", hits.len());
+            for h in hits.iter().take(4) {
+                println!("   {} {}.{} = {}", h.project, h.group, h.token.name, h.token.value);
+            }
+        }
+    }
+
     /// Manual check against real folders: `cargo test probe -- --ignored --nocapture`
     #[test]
     #[ignore]

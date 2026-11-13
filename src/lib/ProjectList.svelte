@@ -1,7 +1,41 @@
 <script>
   import { tick } from 'svelte';
+  import { api } from './api.js';
+  import { className, cssReference, displayValue, groupLabel, isColorLike, readUtilPrefs, utilFor } from './tokens.js';
 
-  let { projects, settings, scanning, onopen, onpin, onrescan, onsettings } = $props();
+  let { projects, settings, scanning, indexing, onopen, onpin, onrescan, onsettings, notify } = $props();
+
+  // Cross-project token search (custom tokens of every indexed config).
+  let hits = $state([]);
+  let searchTimer;
+  $effect(() => {
+    const q = query.trim();
+    indexing.done; // search again as the index fills up
+    clearTimeout(searchTimer);
+    if (q.length < 2) {
+      hits = [];
+      return;
+    }
+    searchTimer = setTimeout(async () => {
+      const result = await api.searchTokens(q);
+      if (query.trim() === q) hits = result;
+    }, 120);
+  });
+
+  async function copyHit(hit, e) {
+    const theme = { kind: hit.kind, prefix: hit.prefix };
+    let text;
+    if (e.altKey) text = displayValue(hit.token);
+    else if (e.shiftKey) text = cssReference(theme, hit.group, hit.token);
+    else text = className(theme, hit.group, utilFor(readUtilPrefs(), hit.group), hit.token) ?? cssReference(theme, hit.group, hit.token);
+    await api.copy(text);
+    notify(`Copié · ${text}`);
+  }
+
+  function openHitProject(hit) {
+    const project = projects.find((p) => p.path === hit.projectPath);
+    if (project) onopen(project);
+  }
 
   let query = $state('');
   let selected = $state(0);
@@ -108,7 +142,7 @@
       bind:this={input}
       bind:value={query}
       {onkeydown}
-      placeholder="Rechercher un projet…"
+      placeholder="Projet ou token (couleur, nom, valeur…)"
       spellcheck="false"
       class="w-full rounded-lg bg-panel-2 py-1.5 pr-2 pl-8 outline-none placeholder:text-muted focus:ring-2 focus:ring-accent/40"
     />
@@ -195,4 +229,58 @@
       </div>
     {/each}
   {/each}
+
+  {#if hits.length}
+    <div class="sticky top-0 z-10 bg-panel px-2.5 pt-3 pb-1 text-[11px] font-medium tracking-wide text-muted uppercase">
+      Tokens · {hits.length}{hits.length === 80 ? '+' : ''}
+    </div>
+    {#each hits as hit (hit.configPath + hit.group + hit.token.name)}
+      {@const value = displayValue(hit.token)}
+      {@const cls = className({ kind: hit.kind, prefix: hit.prefix }, hit.group, utilFor(readUtilPrefs(), hit.group), hit.token)}
+      <div
+        role="button"
+        tabindex="-1"
+        onclick={(e) => copyHit(hit, e)}
+        onkeydown={() => {}}
+        title="Clic : copier · ⌥ valeur · ⇧ {hit.kind === 'v4' ? 'var()' : 'theme()'}"
+        class="group flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 hover:bg-panel-2"
+      >
+        {#if isColorLike(value)}
+          <span class="checker size-6 shrink-0 overflow-hidden rounded-md ring-1 ring-line"
+            ><span class="block size-full" style:background={value}></span></span
+          >
+        {:else}
+          <span class="grid size-6 shrink-0 place-items-center rounded-md bg-panel-2 text-[9px] text-muted uppercase"
+            >{groupLabel(hit.group).slice(0, 2)}</span
+          >
+        {/if}
+        <div class="min-w-0 flex-1">
+          <div class="truncate font-mono text-[12px]">{cls ?? hit.token.varName ?? hit.token.name}</div>
+          <div class="truncate text-[11px] text-muted"><span class="font-mono">{value}</span> · {hit.project}</div>
+        </div>
+        <button
+          title="Ouvrir le projet"
+          onclick={(e) => {
+            e.stopPropagation();
+            openHitProject(hit);
+          }}
+          class="grid size-6 shrink-0 place-items-center rounded text-muted opacity-0 group-hover:opacity-100 hover:bg-panel hover:text-ink"
+        >
+          <svg class="size-3.5" viewBox="0 0 20 20" fill="currentColor"
+            ><path
+              fill-rule="evenodd"
+              d="M8.22 5.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06-1.06L11.94 10 8.22 6.28a.75.75 0 0 1 0-1.06Z"
+              clip-rule="evenodd"
+            /></svg
+          >
+        </button>
+      </div>
+    {/each}
+  {/if}
 </div>
+
+{#if indexing.total && indexing.done < indexing.total}
+  <footer class="border-t border-line px-3 py-1.5 text-[10.5px] text-muted">
+    Indexation des tokens… {indexing.done}/{indexing.total}
+  </footer>
+{/if}

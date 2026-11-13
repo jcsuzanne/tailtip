@@ -1,15 +1,19 @@
 import { build } from 'esbuild';
 import { cpSync, rmSync, mkdirSync } from 'node:fs';
+import { join } from 'node:path';
 
-rmSync('dist', { recursive: true, force: true });
-mkdirSync('dist', { recursive: true });
+const here = import.meta.dirname;
+const dist = join(here, 'dist');
+
+rmSync(dist, { recursive: true, force: true });
+mkdirSync(dist, { recursive: true });
 await build({
-  entryPoints: ['src/resolve.cjs'],
+  entryPoints: [join(here, 'src/resolve.cjs')],
   bundle: true,
   platform: 'node',
   format: 'cjs',
   target: 'node18',
-  outfile: 'dist/resolve.cjs',
+  outfile: join(dist, 'resolve.cjs'),
   logLevel: 'warning',
 });
-cpSync('src/shims', 'dist/shims', { recursive: true });
+cpSync(join(here, 'src/shims'), join(dist, 'shims'), { recursive: true });

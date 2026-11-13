@@ -10,6 +10,9 @@
     isColorLike,
     sortGroups,
     toPx,
+    readUtilPrefs,
+    writeUtilPrefs,
+    utilFor as pickUtil,
   } from './tokens.js';
 
   let { project, pinned, onback, onpin, onhide, notify } = $props();
@@ -22,22 +25,11 @@
   let input;
   let scroller;
 
-  const UTIL_KEY = 'tailtip:utils';
-  let chosenUtil = $state(readUtils());
-
-  function readUtils() {
-    try {
-      return JSON.parse(localStorage.getItem(UTIL_KEY) || '{}');
-    } catch {
-      return {};
-    }
-  }
+  let chosenUtil = $state(readUtilPrefs());
 
   function chooseUtil(group, util) {
     chosenUtil = { ...chosenUtil, [group]: util };
-    try {
-      localStorage.setItem(UTIL_KEY, JSON.stringify(chosenUtil));
-    } catch {}
+    writeUtilPrefs(chosenUtil);
   }
 
   export async function focus() {
@@ -47,10 +39,12 @@
 
   const config = $derived(project.configs[configIndex] ?? project.configs[0]);
 
-  async function load() {
+  async function load({ silent = false } = {}) {
     const c = config;
-    loading = true;
-    theme = null;
+    if (!silent) {
+      loading = true;
+      theme = null;
+    }
     try {
       const t = await api.loadTheme(c.path, c.kind);
       if (config === c) theme = t;
@@ -64,6 +58,25 @@
   $effect(() => {
     config;
     load();
+  });
+
+  // Auto-refresh when the config (or a file it imports) changes on disk.
+  $effect(() => {
+    const path = config.path;
+    let unlisten;
+    let disposed = false;
+    api
+      .listen('config-changed', async (event) => {
+        if (event.payload.includes(path)) {
+          await load({ silent: true });
+          notify('Config rechargée');
+        }
+      })
+      .then((u) => (disposed ? u() : (unlisten = u)));
+    return () => {
+      disposed = true;
+      unlisten?.();
+    };
   });
 
   $effect(() => {
@@ -92,11 +105,7 @@
 
   const tokenCount = $derived(groups.reduce((n, g) => n + g.tokens.length, 0));
 
-  function utilFor(groupKey) {
-    const options = UTILITIES[groupKey];
-    if (!options) return null;
-    return options.includes(chosenUtil[groupKey]) ? chosenUtil[groupKey] : options[0];
-  }
+  const utilFor = (groupKey) => pickUtil(chosenUtil, groupKey);
 
   async function copy(group, token, e) {
     let text;

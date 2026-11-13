@@ -2,6 +2,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { writeText } from '@tauri-apps/plugin-clipboard-manager';
 import { open as openDialog } from '@tauri-apps/plugin-dialog';
+import * as autostart from '@tauri-apps/plugin-autostart';
 
 export const api = {
   getSettings: () => invoke('get_settings'),
@@ -9,6 +10,8 @@ export const api = {
   listProjects: () => invoke('list_projects'),
   rescan: () => invoke('rescan'),
   loadTheme: (path, kind) => invoke('load_theme', { path, kind }),
+  searchTokens: (query) => invoke('search_tokens', { query }),
+  autostart,
   openInEditor: (path, line = null) => invoke('open_in_editor', { path, line }),
   revealInFinder: (path) => invoke('reveal_in_finder', { path }),
   hideWindow: () => invoke('hide_window'),

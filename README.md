@@ -8,6 +8,9 @@ Utilitaire macOS dans la barre de menu : accès rapide aux tokens Tailwind (coul
 ## Utilisation
 
 - Clic sur l'icône (ou `⌥⌘T`) → liste des projets, recherche, `↑↓` + `Entrée`.
+- La recherche couvre aussi les tokens perso de **tous** les projets (nom ou valeur, ex. `ivory`, `#f9af26`).
+- Les configs sont surveillées : toute modification (y compris des `@import` v4) recharge le thème.
+- Réglages → « Lancer TailTip au démarrage du Mac ».
 - Clic sur un token → copie la classe (`tw-bg-cognac`, `tw:bg-ivory`…), préfixe respecté.
 - `⌥` clic → valeur · `⇧` clic → `var(--…)` (v4) / `theme('…')` (v3).
 - Icône ↗ / clic droit sur une couleur → ouvre la ligne dans Cursor.
@@ -21,7 +24,9 @@ Prérequis : Node, pnpm, Rust (`brew install rust` ou rustup).
 pnpm install
 pnpm build:resolver      # bundle du résolveur v3 (src-tauri/resolver)
 pnpm tauri dev
-pnpm tauri build         # → src-tauri/target/release/bundle/{macos,dmg}
+pnpm tauri build --bundles app   # → src-tauri/target/release/bundle/macos/TailTip.app
 ```
+
+Installer : copier `TailTip.app` dans `/Applications`. Non signée : pour un collègue, clic droit → Ouvrir au premier lancement (ou signature Apple Developer).
 
 Réglages stockés dans `~/Library/Application Support/dev.tailtip.app/settings.json`.

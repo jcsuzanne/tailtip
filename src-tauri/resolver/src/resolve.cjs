@@ -136,8 +136,20 @@ function customKeysFor(config) {
   return custom;
 }
 
+/** Some configs import browser modules by accident; give them inert DOM globals. */
+function stubBrowserGlobals() {
+  const stub = require(path.join(shimDir, 'stub.cjs'));
+  for (const name of ['window', 'document', 'navigator', 'customElements', 'localStorage', 'requestAnimationFrame']) {
+    if (!(name in globalThis)) globalThis[name] = stub;
+  }
+  for (const name of ['HTMLElement', 'Element', 'Node', 'Event', 'CustomEvent']) {
+    if (!(name in globalThis)) globalThis[name] = class {};
+  }
+}
+
 function main() {
   if (!fs.existsSync(configPath)) throw new Error(`Config introuvable : ${configPath}`);
+  stubBrowserGlobals();
 
   const jiti = createJiti(configPath, { interopDefault: true, cache: false, requireCache: false });
   let config = jiti(configPath);

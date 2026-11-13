@@ -10,9 +10,25 @@
   // svelte-ignore state_referenced_locally
   let shortcut = $state(settings.shortcut);
 
+  let launchAtLogin = $state(false);
+
   onMount(async () => {
     detectedNode = (await api.detectedNode()) ?? '';
+    try {
+      launchAtLogin = await api.autostart.isEnabled();
+    } catch {}
   });
+
+  async function toggleLaunchAtLogin() {
+    try {
+      if (launchAtLogin) await api.autostart.disable();
+      else await api.autostart.enable();
+      launchAtLogin = await api.autostart.isEnabled();
+      notify(launchAtLogin ? 'Lancement au démarrage activé' : 'Lancement au démarrage désactivé');
+    } catch (e) {
+      notify(String(e));
+    }
+  }
 
   const hiddenProjects = $derived(
     settings.hidden.map((path) => projects.find((p) => p.path === path) ?? { name: path.split('/').pop(), path }),
@@ -74,6 +90,25 @@
       <button class="rounded-md bg-panel-2 px-2.5 py-1 hover:bg-accent-soft" onclick={addRoot}>Ajouter un dossier…</button>
       <button class="rounded-md bg-panel-2 px-2.5 py-1 hover:bg-accent-soft" onclick={onrescan}>Rescanner</button>
     </div>
+  </section>
+
+  <section>
+    <h3 class="mb-1.5 text-[11px] font-medium tracking-wide text-muted uppercase">Général</h3>
+    <button
+      role="switch"
+      aria-checked={launchAtLogin}
+      onclick={toggleLaunchAtLogin}
+      class="flex w-full items-center justify-between rounded-lg border border-line px-2.5 py-2 text-left"
+    >
+      <span>Lancer TailTip au démarrage du Mac</span>
+      <span class="relative h-5 w-9 rounded-full transition-colors {launchAtLogin ? 'bg-accent' : 'bg-line'}">
+        <span
+          class="absolute top-0.5 left-0.5 size-4 rounded-full bg-white shadow transition-transform {launchAtLogin
+            ? 'translate-x-4'
+            : ''}"
+        ></span>
+      </span>
+    </button>
   </section>
 
   <section class="space-y-3">

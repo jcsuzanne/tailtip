@@ -143,3 +143,26 @@ export function toPx(value) {
   const n = parseFloat(m[1]);
   return m[2] === 'rem' || m[2] === 'em' ? n * PX_PER_REM : n;
 }
+
+// Utility picked per group (bg / text / border…), remembered across sessions.
+const UTIL_KEY = 'tailtip:utils';
+
+export function readUtilPrefs() {
+  try {
+    return JSON.parse(localStorage.getItem(UTIL_KEY) || '{}');
+  } catch {
+    return {};
+  }
+}
+
+export function writeUtilPrefs(prefs) {
+  try {
+    localStorage.setItem(UTIL_KEY, JSON.stringify(prefs));
+  } catch {}
+}
+
+export function utilFor(prefs, groupKey) {
+  const options = UTILITIES[groupKey];
+  if (!options) return null;
+  return options.includes(prefs[groupKey]) ? prefs[groupKey] : options[0];
+}

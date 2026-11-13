@@ -10,6 +10,7 @@
   let settings = $state(null);
   let current = $state(null);
   let scanning = $state(false);
+  let indexing = $state({ done: 0, total: 0 });
   let toast = $state(null);
   let toastTimer;
   let listRef = $state();
@@ -72,16 +73,18 @@
     let unlisten = [];
     (async () => {
       settings = await api.getSettings();
-      scanning = true;
-      projects = await api.listProjects();
-      scanning = false;
       unlisten.push(
         await api.listen('popover-shown', () => {
           if (view === 'list') listRef?.focus();
           else if (view === 'project') projectRef?.focus();
         }),
         await api.listen('rescan-requested', rescan),
+        await api.listen('index-progress', (e) => (indexing = e.payload)),
+        await api.listen('index-ready', (e) => (indexing = { done: e.payload, total: e.payload })),
       );
+      scanning = true;
+      projects = await api.listProjects();
+      scanning = false;
     })();
     return () => unlisten.forEach((u) => u());
   });
@@ -100,6 +103,8 @@
       {projects}
       {settings}
       {scanning}
+      {indexing}
+      {notify}
       onopen={openProject}
       onpin={togglePin}
       onrescan={rescan}
