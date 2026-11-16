@@ -11,7 +11,13 @@ Utilitaire macOS dans la barre de menu : accès rapide aux tokens Tailwind (coul
 
 [⬇︎ Télécharger la dernière version](https://github.com/jcsuzanne/tailtip/releases/latest) (Mac Apple Silicon, Node.js requis pour les configs v3).
 
-Dézipper, déplacer `TailTip.app` dans `/Applications`, puis **clic droit → Ouvrir** au premier lancement (app non signée). Ajouter ses dossiers de projets dans les réglages (⚙).
+Dézipper, déplacer `TailTip.app` dans `/Applications`, puis retirer l'attribut de quarantaine (app non notarisée, sinon macOS la dit « endommagée ») :
+
+```sh
+xattr -cr /Applications/TailTip.app
+```
+
+Ajouter ses dossiers de projets dans les réglages (⚙).
 
 ## Utilisation
 

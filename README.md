@@ -11,7 +11,13 @@ A macOS menu bar utility for quick access to the Tailwind tokens (colors, fonts,
 
 [⬇︎ Download the latest release](https://github.com/jcsuzanne/tailtip/releases/latest) (Apple Silicon Mac, Node.js required for v3 configs).
 
-Unzip, move `TailTip.app` to `/Applications`, then **right-click → Open** on first launch (the app is not signed). Add your project folders in Settings (⚙).
+Unzip, move `TailTip.app` to `/Applications`, then remove the quarantine flag (the app is not notarized, macOS would otherwise report it as "damaged"):
+
+```sh
+xattr -cr /Applications/TailTip.app
+```
+
+Add your project folders in Settings (⚙).
 
 ## Usage
 
