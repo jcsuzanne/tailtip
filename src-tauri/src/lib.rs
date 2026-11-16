@@ -2,6 +2,7 @@ mod index;
 mod scan;
 mod settings;
 mod theme;
+mod typography;
 mod v3;
 mod v4;
 
@@ -142,6 +143,13 @@ async fn load_theme(app: AppHandle, path: String, kind: Kind) -> Theme {
     })
     .await
     .unwrap_or_else(|e| Theme::failed(kind, "", e.to_string()))
+}
+
+#[tauri::command]
+async fn load_typography(project_path: String) -> Vec<typography::TypoFile> {
+    tauri::async_runtime::spawn_blocking(move || typography::load(Path::new(&project_path)))
+        .await
+        .unwrap_or_default()
 }
 
 #[tauri::command]
@@ -300,6 +308,7 @@ pub fn run() {
             list_projects,
             rescan,
             load_theme,
+            load_typography,
             search_tokens,
             open_in_editor,
             reveal_in_finder,

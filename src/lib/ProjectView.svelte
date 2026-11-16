@@ -27,6 +27,65 @@
 
   let chosenUtil = $state(readUtilPrefs());
 
+  // Typography utilities from the project's typography.css (if any).
+  let tab = $state('tokens');
+  let typo = $state([]);
+
+  async function loadTypo() {
+    const p = project.path;
+    try {
+      const files = await api.loadTypography(p);
+      if (project.path === p) typo = files;
+    } catch {
+      if (project.path === p) typo = [];
+    }
+  }
+
+  $effect(() => {
+    project;
+    tab = 'tokens';
+    typo = [];
+    loadTypo();
+  });
+
+  // Typography files are not watched: refresh when the popover is shown again.
+  $effect(() => {
+    let unlisten;
+    let disposed = false;
+    api.listen('popover-shown', () => loadTypo()).then((u) => (disposed ? u() : (unlisten = u)));
+    return () => {
+      disposed = true;
+      unlisten?.();
+    };
+  });
+
+  const typoCount = $derived(typo.reduce((n, f) => n + f.utilities.length, 0));
+
+  const typoFiles = $derived.by(() => {
+    const q = query.trim().toLowerCase();
+    return typo
+      .map((f) => ({
+        ...f,
+        utilities: f.utilities.filter((u) => !q || u.name.toLowerCase().includes(q) || u.body.toLowerCase().includes(q)),
+      }))
+      .filter((f) => f.utilities.length || f.error);
+  });
+
+  /** v4 prefixes every utility (`tw:u-title`); v3 leaves custom classes alone. */
+  function typoClass(name) {
+    return theme?.kind === 'v4' && theme.prefix ? `${theme.prefix}:${name}` : name;
+  }
+
+  async function copyTypo(name) {
+    const text = typoClass(name);
+    await api.copy(text);
+    notify(`Copié · ${text}`);
+  }
+
+  function relPath(path) {
+    return path.startsWith(project.path + '/') ? path.slice(project.path.length + 1) : fileName(path);
+  }
+
   function chooseUtil(group, util) {
     chosenUtil = { ...chosenUtil, [group]: util };
     writeUtilPrefs(chosenUtil);
@@ -130,7 +189,7 @@
   }
 </script>
 
-<header class="border-b border-line px-3 pt-2.5 pb-2">
+<header class="border-b border-line bg-head px-3 pt-2.5 pb-2">
   <div class="flex items-center gap-1.5">
     <button
       title="Retour (Échap)"
@@ -216,30 +275,47 @@
     </select>
   {/if}
 
+  {#if typoCount}
+    <div class="mt-2 flex rounded-lg bg-panel-2 p-0.5 text-[11px]">
+      <button
+        onclick={() => (tab = 'tokens')}
+        class="flex-1 rounded-md px-2 py-1 font-medium {tab === 'tokens' ? 'bg-sky-500/15 text-sky-700 shadow-sm ring-1 ring-sky-500/30 dark:text-sky-300' : 'text-muted hover:text-sky-600 dark:hover:text-sky-400'}">Tokens</button
+      >
+      <button
+        onclick={() => {
+          tab = 'typo';
+          loadTypo();
+        }}
+        class="flex-1 rounded-md px-2 py-1 font-medium {tab === 'typo' ? 'bg-emerald-500/15 text-emerald-700 shadow-sm ring-1 ring-emerald-500/30 dark:text-emerald-300' : 'text-muted hover:text-emerald-600 dark:hover:text-emerald-400'}"
+        >Typographie <span class="opacity-60">{typoCount}</span></button
+      >
+    </div>
+  {/if}
+
   <div class="mt-2 flex items-center gap-2">
     <input
       bind:this={input}
       bind:value={query}
-      placeholder="Filtrer les tokens…"
+      placeholder={tab === 'typo' ? 'Filtrer les utilitaires…' : 'Filtrer les tokens…'}
       spellcheck="false"
       class="min-w-0 flex-1 rounded-lg bg-panel-2 px-2.5 py-1.5 outline-none placeholder:text-muted focus:ring-2 focus:ring-accent/40"
     />
-    {#if hasDefaults}
+    {#if hasDefaults && tab === 'tokens'}
       <div class="flex shrink-0 rounded-lg bg-panel-2 p-0.5 text-[11px]">
         <button
           onclick={() => (customOnly = true)}
-          class="rounded-md px-2 py-1 {customOnly ? 'bg-panel shadow-sm' : 'text-muted'}">Perso</button
+          class="rounded-md px-2 py-1 {customOnly ? 'bg-head shadow-sm' : 'text-muted'}">Perso</button
         >
         <button
           onclick={() => (customOnly = false)}
-          class="rounded-md px-2 py-1 {!customOnly ? 'bg-panel shadow-sm' : 'text-muted'}">Tout</button
+          class="rounded-md px-2 py-1 {!customOnly ? 'bg-head shadow-sm' : 'text-muted'}">Tout</button
         >
       </div>
     {/if}
   </div>
 
-  {#if groups.length > 1}
-    <nav class="scroll-thin -mx-3 mt-2 flex gap-1 overflow-x-auto px-3">
+  {#if groups.length > 1 && tab === 'tokens'}
+    <nav class="mt-2 flex flex-wrap gap-1">
       {#each groups as g (g.key)}
         <button
           onclick={() => jump(g.key)}
@@ -252,7 +328,63 @@
 </header>
 
 <div bind:this={scroller} class="scroll-thin flex-1 overflow-y-auto pb-12">
-  {#if loading}
+  {#if tab === 'typo'}
+    {#if !typoFiles.length}
+      <div class="px-4 py-10 text-center text-muted">Aucun utilitaire ne correspond.</div>
+    {/if}
+    {#each typoFiles as file (file.path)}
+      <section class="px-3 pt-3">
+        <div class="sticky top-0 z-10 -mx-3 flex items-center gap-2 bg-panel/95 px-3 py-1 backdrop-blur">
+          <h3 class="min-w-0 truncate font-mono text-[11px] text-muted" title={file.path}>{relPath(file.path)}</h3>
+          <button
+            title="Ouvrir dans Cursor"
+            class="ml-auto shrink-0 text-[11px] text-accent hover:underline"
+            onclick={() => api.openInEditor(file.path)}>Ouvrir</button
+          >
+        </div>
+        {#if file.error}
+          <div class="mt-1 font-mono text-[11px] break-words text-red-600 dark:text-red-400">{file.error}</div>
+        {/if}
+        <div class="divide-y divide-line/60">
+          {#each file.utilities as u (u.name + u.line)}
+            {@const cls = typoClass(u.name)}
+            <div class="group -mx-1.5 rounded-md px-1.5 py-2 hover:bg-panel-2">
+              <div class="flex items-center gap-1.5">
+                <code class="min-w-0 flex-1 truncate font-mono text-[12px] font-medium">{cls}</code>
+                <button
+                  title="Ouvrir dans Cursor (ligne {u.line})"
+                  class="grid size-6 shrink-0 place-items-center rounded text-muted opacity-0 group-hover:opacity-100 hover:bg-panel hover:text-ink"
+                  onclick={() => api.openInEditor(file.path, u.line)}
+                >
+                  <svg class="size-3.5" viewBox="0 0 20 20" fill="currentColor"
+                    ><path
+                      fill-rule="evenodd"
+                      d="M4.25 5.5a.75.75 0 0 0-.75.75v8.5c0 .41.34.75.75.75h8.5a.75.75 0 0 0 .75-.75v-4a.75.75 0 0 1 1.5 0v4A2.25 2.25 0 0 1 12.75 17h-8.5A2.25 2.25 0 0 1 2 14.75v-8.5A2.25 2.25 0 0 1 4.25 4h5a.75.75 0 0 1 0 1.5h-5Zm7.25-.75a.75.75 0 0 1 .75-.75h3.5a.75.75 0 0 1 .75.75v3.5a.75.75 0 0 1-1.5 0V6.56l-5.22 5.22a.75.75 0 1 1-1.06-1.06l5.22-5.22h-1.69a.75.75 0 0 1-.75-.75Z"
+                      clip-rule="evenodd"
+                    /></svg
+                  >
+                </button>
+                <button
+                  title="Copier {cls}"
+                  class="flex shrink-0 items-center gap-1 rounded-md border border-line px-1.5 py-0.5 text-[11px] text-muted hover:border-accent hover:text-ink"
+                  onclick={() => copyTypo(u.name)}
+                >
+                  <svg class="size-3" viewBox="0 0 20 20" fill="currentColor"
+                    ><path d="M7 3.5A1.5 1.5 0 0 1 8.5 2h3.88a1.5 1.5 0 0 1 1.06.44l3.12 3.12A1.5 1.5 0 0 1 17 6.62V12.5a1.5 1.5 0 0 1-1.5 1.5h-1v-3.38a3 3 0 0 0-.88-2.12L10.5 5.38A3 3 0 0 0 8.38 4.5H7v-1Z" /><path
+                      d="M4.5 6A1.5 1.5 0 0 0 3 7.5v9A1.5 1.5 0 0 0 4.5 18h7a1.5 1.5 0 0 0 1.5-1.5v-5.88a1.5 1.5 0 0 0-.44-1.06L9.44 6.44A1.5 1.5 0 0 0 8.38 6H4.5Z"
+                    /></svg
+                  >Copier
+                </button>
+              </div>
+              {#if u.body}
+                <pre class="mt-1 overflow-x-auto font-mono text-[10.5px] leading-snug whitespace-pre-wrap text-muted select-text">{u.body}</pre>
+              {/if}
+            </div>
+          {/each}
+        </div>
+      </section>
+    {/each}
+  {:else if loading}
     <div class="px-4 py-10 text-center text-muted">Lecture de la config…</div>
   {:else if theme?.error}
     <div class="m-3 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-[12px]">
@@ -365,6 +497,10 @@
 </div>
 
 <footer class="absolute inset-x-0 bottom-0 border-t border-line bg-panel/95 px-3 py-1.5 text-[10.5px] text-muted backdrop-blur">
+  {#if tab === 'typo'}
+  Copier : nom de la classe · ↗ : ouvrir la ligne dans Cursor
+  {:else}
   Clic : classe · <kbd>⌥</kbd> clic : valeur · <kbd>⇧</kbd> clic : {config.kind === 'v4' ? 'var()' : 'theme()'}
   {#if theme?.groups.some((g) => g.key === 'colors')}· clic droit couleur : Cursor{/if}
+  {/if}
 </footer>

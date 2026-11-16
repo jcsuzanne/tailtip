@@ -10,6 +10,7 @@ export const api = {
   listProjects: () => invoke('list_projects'),
   rescan: () => invoke('rescan'),
   loadTheme: (path, kind) => invoke('load_theme', { path, kind }),
+  loadTypography: (projectPath) => invoke('load_typography', { projectPath }),
   searchTokens: (query) => invoke('search_tokens', { query }),
   autostart,
   openInEditor: (path, line = null) => invoke('open_in_editor', { path, line }),

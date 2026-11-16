@@ -61,7 +61,7 @@ pub struct Project {
     pub modified: u64,
 }
 
-fn should_prune(entry: &DirEntry) -> bool {
+pub(crate) fn should_prune(entry: &DirEntry) -> bool {
     if entry.depth() == 0 || !entry.file_type().is_dir() {
         return false;
     }

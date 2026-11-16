@@ -27,6 +27,7 @@ Add your project folders in Settings (⚙).
 - `⌥`-click → copies the value · `⇧`-click → `var(--…)` (v4) / `theme('…')` (v3).
 - Pick the utility copied per group (`bg`, `text`, `border`…) from the group header.
 - ↗ icon / right-click a color → opens the token's line in Cursor.
+- **Typography** tab (when the project has a `typography.css`): lists its utilities (v4 `@utility u-title-100 { … }` or v3 `.u-title-100 { … }`) with their rules; **Copy** puts the class name on the clipboard (`tw:` prefix added in v4), ↗ opens the line in Cursor.
 - Configs are watched: any change (including v4 `@import`s) reloads the theme.
 - Settings → “Launch TailTip at login”.
 - `Esc` → back / close.

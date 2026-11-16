@@ -28,6 +28,7 @@ Ajouter ses dossiers de projets dans les réglages (⚙).
 - Clic sur un token → copie la classe (`tw-bg-cognac`, `tw:bg-ivory`…), préfixe respecté.
 - `⌥` clic → valeur · `⇧` clic → `var(--…)` (v4) / `theme('…')` (v3).
 - Icône ↗ / clic droit sur une couleur → ouvre la ligne dans Cursor.
+- Onglet **Typographie** (si le projet a un `typography.css`) : liste ses utilitaires (v4 `@utility u-title-100 { … }` ou v3 `.u-title-100 { … }`) avec leurs règles ; **Copier** met le nom de la classe dans le presse-papier (préfixe `tw:` ajouté en v4), ↗ ouvre la ligne dans Cursor.
 - `Échap` → retour / fermer.
 
 ## Dev
