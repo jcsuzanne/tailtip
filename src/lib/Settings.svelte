@@ -56,7 +56,7 @@
   }
 </script>
 
-<header class="flex items-center gap-1.5 border-b border-line px-3 py-2.5">
+<header class="flex items-center gap-1.5 border-b border-line bg-head px-3 py-2.5">
   <button
     title="Retour"
     onclick={onback}

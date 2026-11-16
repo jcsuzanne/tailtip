@@ -129,7 +129,7 @@
   });
 </script>
 
-<header class="flex items-center gap-2 border-b border-line px-3 py-2.5">
+<header class="flex items-center gap-2 border-b border-line bg-head px-3 py-2.5">
   <div class="relative flex-1">
     <svg class="absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted" viewBox="0 0 20 20" fill="currentColor"
       ><path
