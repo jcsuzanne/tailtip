@@ -41,6 +41,6 @@ pnpm tauri dev
 pnpm tauri build --bundles app   # → src-tauri/target/release/bundle/macos/TailTip.app
 ```
 
-Installer : copier `TailTip.app` dans `/Applications`. Non signée : pour un collègue, clic droit → Ouvrir au premier lancement (ou signature Apple Developer).
+Installer : copier `TailTip.app` dans `/Applications`. Non notarisée : pour un collègue, `xattr -cr /Applications/TailTip.app` après téléchargement (ou signature Developer ID + notarisation Apple).
 
 Réglages stockés dans `~/Library/Application Support/dev.tailtip.app/settings.json`.
