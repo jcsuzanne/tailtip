@@ -144,6 +144,26 @@ export function toPx(value) {
   return m[2] === 'rem' || m[2] === 'em' ? n * PX_PER_REM : n;
 }
 
+const REM_RE = /(-?(?:\d+\.?\d*|\.\d+))r?em\b/g;
+const fmtPx = (n) => `${+(n * PX_PER_REM).toFixed(2)}px`;
+
+/** px equivalents of every rem/em length in a value ("24px", "16px / 32px"), or null. */
+export function remToPx(value) {
+  const out = [...String(value).matchAll(REM_RE)].map((m) => fmtPx(parseFloat(m[1])));
+  return out.length ? out.join(' / ') : null;
+}
+
+/** Appends a px comment to each CSS line holding rem/em lengths. */
+export function annotateRem(css) {
+  return css
+    .split('\n')
+    .map((line) => {
+      const px = remToPx(line);
+      return px ? `${line} /* ${px} */` : line;
+    })
+    .join('\n');
+}
+
 // Utility picked per group (bg / text / border…), remembered across sessions.
 const UTIL_KEY = 'tailtip:utils';
 

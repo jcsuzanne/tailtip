@@ -10,6 +10,8 @@
     isColorLike,
     sortGroups,
     toPx,
+    remToPx,
+    annotateRem,
     readUtilPrefs,
     writeUtilPrefs,
     utilFor as pickUtil,
@@ -377,7 +379,7 @@
                 </button>
               </div>
               {#if u.body}
-                <pre class="mt-1 overflow-x-auto font-mono text-[10.5px] leading-snug whitespace-pre-wrap text-muted select-text">{u.body}</pre>
+                <pre class="mt-1 overflow-x-auto font-mono text-[10.5px] leading-snug whitespace-pre-wrap text-muted select-text">{annotateRem(u.body)}</pre>
               {/if}
             </div>
           {/each}
@@ -446,6 +448,7 @@
               {@const value = displayValue(token)}
               {@const cls = className(theme, group.key, util, token)}
               {@const px = toPx(value)}
+              {@const remPx = remToPx(value)}
               <div
                 role="button"
                 tabindex="-1"
@@ -464,7 +467,7 @@
                 {/if}
                 <div class="min-w-0 flex-1">
                   <div class="truncate font-mono text-[12px]">{cls ?? token.varName ?? token.name}</div>
-                  <div class="truncate font-mono text-[11px] text-muted" title={value}>{value}</div>
+                  <div class="truncate font-mono text-[11px] text-muted" title={value}>{value}{#if remPx}<span class="opacity-70"> · {remPx}</span>{/if}</div>
                   {#if px != null && ['spacing', 'padding', 'margin', 'gap', 'width', 'maxWidth', 'height', 'fontSize', 'lineHeight', 'screens'].includes(group.key)}
                     <div class="mt-1 h-1 rounded-full bg-accent/60" style:width="{Math.min(px / (group.key === 'screens' ? 10 : 2), 100)}%"></div>
                   {/if}
